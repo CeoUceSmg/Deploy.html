@@ -1,0 +1,8 @@
+{
+  "name": "ViraForce Marketplace - Deployment Central",
+  "description": "Dedicated deployment management, V1 content configuration, and V2 release workspace for ViraForce Marketplace vendors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

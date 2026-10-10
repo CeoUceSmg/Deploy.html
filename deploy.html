@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth antialiased bg-[#03040B]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Deployment Central | ViraForce Marketplace</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        brand: { 900: '#050810', 800: '#0F1523', accent: '#00E5FF', emerald: '#00FF9D', pink: '#FF007F', gold: '#F5C000', purple: '#A855F7' }
+                    },
+                    animation: { 'fade-in-up': 'fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards' },
+                    keyframes: { fadeInUp: { '0%': { opacity: '0', transform: 'translateY(14px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #03040B; color: #E2E8F0; overflow-x: hidden; }
+        .ambient-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-image: radial-gradient(circle at 15% 20%, rgba(245, 192, 0, 0.05) 0%, transparent 40%), radial-gradient(circle at 85% 75%, rgba(0, 229, 255, 0.06) 0%, transparent 45%); z-index: -1; pointer-events: none; }
+
+        .glass-panel { background: rgba(10, 13, 20, 0.75); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.7); }
+        .glass-card { background: rgba(15, 21, 35, 0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.06); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
+
+        .admin-input { background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; transition: all 0.2s; }
+        .admin-input:focus { outline: none; border-color: #00E5FF; box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.2); }
+        select.admin-input option { background-color: #0A0D14; color: #fff; }
+
+        .tab-btn { transition: all 0.2s ease; border-radius: 12px; }
+        .tab-btn.active { background: rgba(0, 229, 255, 0.1); color: #00E5FF; border-left: 3px solid #00E5FF; }
+        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.05); }
+
+        .deploy-view { display: none; }
+        .deploy-view.active { display: block; }
+
+        .overlay-mask { transition: opacity 0.3s ease; opacity: 0; pointer-events: none; backdrop-filter: blur(0px); z-index: 200; }
+        .overlay-mask.open { opacity: 1; pointer-events: auto; backdrop-filter: blur(8px); }
+
+        #sidebar { transition: transform 0.3s ease; z-index: 150; }
+        @media (max-width: 1024px) {
+            #sidebar { transform: translateX(-100%); position: fixed; height: 100vh; }
+            #sidebar.open { transform: translateX(0); }
+        }
+        @media (min-width: 1025px) {
+            #sidebar { position: static; transform: none; height: 100vh; }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row text-sm">
+
+    <div class="ambient-bg"></div>
+    <div id="sidebarMask" onclick="window.toggleSidebar()" class="overlay-mask fixed inset-0 w-full h-full bg-black/80 z-[140] lg:hidden"></div>
+
+    <!-- SECURITY GATE & LOGIN PROMPT -->
+    <div id="securityGate" class="fixed inset-0 w-full h-full z-[300] bg-[#03040B] flex flex-col items-center justify-center p-6 text-center transition-opacity duration-500">
+        <div id="gateVerifying" class="flex flex-col items-center max-w-sm">
+            <i class="fa-solid fa-shield-halved text-5xl text-brand-gold mb-6 animate-pulse"></i>
+            <h2 class="text-xl font-display font-black text-white tracking-widest uppercase mb-2">Verifying Clearance...</h2>
+            <p class="text-xs text-gray-400">Authenticating vendor credentials with ViraForce Marketplace</p>
+        </div>
+
+        <!-- Inline Login Prompt (Activated if user is not signed in or needs vendor credentials) -->
+        <div id="gateLoginPrompt" class="hidden glass-panel p-8 sm:p-10 rounded-3xl w-full max-w-md border border-brand-accent/30 text-left relative shadow-[0_0_50px_rgba(0,229,255,0.15)] animate-fade-in-up">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 rounded-2xl bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent text-xl">
+                    <i class="fa-solid fa-rocket"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-display font-black text-white leading-tight">Vendor Access Gate</h3>
+                    <p class="text-[11px] text-gray-400 uppercase tracking-widest font-mono">Deployment Central Clearance</p>
+                </div>
+            </div>
+
+            <p class="text-xs text-gray-300 mb-6 leading-relaxed">
+                You must be logged in as a verified ViraForce vendor to configure V1/V2 deployments and manage product releases.
+            </p>
+
+            <form onsubmit="window.handleGateLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 font-display">Vendor Email</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                        <input type="email" id="gateEmail" class="admin-input w-full pl-10 pr-4 py-3.5 rounded-xl text-sm" placeholder="vendor@viraforce.com" required autocomplete="email">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 font-display">Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                        <input type="password" id="gatePassword" class="admin-input w-full pl-10 pr-4 py-3.5 rounded-xl text-sm" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+                </div>
+
+                <div id="gateErrorBox" class="hidden p-3 rounded-xl bg-brand-pink/10 border border-brand-pink/30 text-brand-pink text-xs font-medium"></div>
+
+                <button type="submit" id="gateLoginBtn" class="w-full bg-brand-accent text-black font-display font-bold py-3.5 rounded-xl text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all flex items-center justify-center gap-2 cursor-pointer mt-2">
+                    <i class="fa-solid fa-key"></i> Authenticate & Enter
+                </button>
+            </form>
+
+            <div class="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-[11px]">
+                <a href="vendor.html" class="text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-arrow-left"></i> Vendor Central
+                </a>
+                <a href="hub.html" class="text-brand-accent hover:underline">Marketplace Hub</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION MODAL -->
+    <div id="customAlertModal" class="overlay-mask fixed inset-0 flex items-center justify-center p-4 z-[400]">
+        <div class="glass-panel p-8 rounded-3xl w-full max-w-sm transform scale-95 transition-all duration-300 relative border-brand-gold/30" id="customAlertBox">
+            <div class="w-14 h-14 rounded-full bg-brand-gold/10 flex items-center justify-center mb-6 border border-brand-gold/30 shadow-[0_0_15px_rgba(245,192,0,0.3)]">
+                <i class="fa-solid fa-bell text-2xl text-brand-gold"></i>
+            </div>
+            <h3 id="alertTitle" class="text-xl font-display font-black text-white mb-2">Notice</h3>
+            <p id="alertMessage" class="text-sm text-gray-400 mb-8 leading-relaxed"></p>
+            <button onclick="window.closeAlert()" class="w-full bg-brand-gold text-black font-bold py-3 rounded-xl uppercase tracking-widest">Acknowledge</button>
+        </div>
+    </div>
+
+    <!-- CONFIRMATION MODAL -->
+    <div id="customConfirmModal" class="overlay-mask fixed inset-0 flex items-center justify-center p-4 z-[400]">
+        <div class="glass-panel p-8 rounded-3xl w-full max-w-sm transform scale-95 transition-all duration-300 relative border-brand-accent/30" id="customConfirmBox">
+            <div class="w-14 h-14 rounded-full bg-brand-accent/10 flex items-center justify-center mb-6 border border-brand-accent/30 shadow-[0_0_15px_rgba(0,229,255,0.3)]">
+                <i class="fa-solid fa-triangle-exclamation text-2xl text-brand-accent"></i>
+            </div>
+            <h3 id="confirmTitle" class="text-xl font-display font-black text-white mb-2">Confirm Action</h3>
+            <p id="confirmMessage" class="text-sm text-gray-400 mb-8 leading-relaxed"></p>
+            <div class="flex gap-3 justify-end">
+                <button id="confirmCancel" class="px-5 py-3 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5">Cancel</button>
+                <button id="confirmAccept" class="bg-brand-accent text-black font-bold px-6 py-3 rounded-xl uppercase tracking-widest text-xs">Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIVE PREVIEW MODAL -->
+    <div id="previewModal" class="overlay-mask fixed inset-0 flex items-center justify-center p-4 z-[350]">
+        <div class="glass-panel p-6 sm:p-8 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar relative border-brand-accent/40 shadow-[0_0_50px_rgba(0,229,255,0.15)]">
+            <div class="flex justify-between items-center pb-4 mb-6 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-brand-accent/10 flex items-center justify-center text-brand-accent border border-brand-accent/30">
+                        <i class="fa-solid fa-eye"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Listing Live Preview</h3>
+                        <p class="text-[10px] text-gray-400 uppercase tracking-widest font-mono" id="previewPidHeader">PID: ---</p>
+                    </div>
+                </div>
+                <button onclick="window.closeModals()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="previewModalContent" class="space-y-6">
+                <!-- Preview injected here -->
+            </div>
+
+            <div class="mt-8 pt-4 border-t border-white/10 flex justify-end">
+                <button onclick="window.closeModals()" class="px-6 py-3 rounded-xl bg-white/10 text-white font-bold text-xs uppercase tracking-widest hover:bg-white/20">Close Preview</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 w-[260px] bg-[#0A0D14] lg:bg-[#0A0D14]/80 border-r border-white/5 flex flex-col flex-shrink-0 z-[150]">
+        <div class="h-20 border-b border-white/5 flex items-center justify-between px-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded shadow-[0_0_15px_rgba(212,175,55,0.3)] border border-brand-gold/50 flex items-center justify-center bg-brand-900 overflow-hidden">
+                    <img src="images/logo.png" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?auto=format&fit=crop&w=100&q=80'" class="w-full h-full object-cover">
+                </div>
+                <div>
+                    <h1 class="font-black text-lg tracking-tight text-white leading-none">VIRAFORCE</h1>
+                    <span class="text-[9px] font-bold text-brand-accent uppercase tracking-widest">Deploy Central</span>
+                </div>
+            </div>
+            <button onclick="window.toggleSidebar()" class="lg:hidden text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+
+        <nav class="flex-1 py-6 flex flex-col gap-2 overflow-y-auto px-4 custom-scrollbar">
+            <a href="vendor.html" class="text-left px-4 py-3 rounded-xl text-xs font-bold text-brand-gold bg-brand-gold/10 hover:bg-brand-gold hover:text-black transition-all flex items-center gap-3 mb-2 shadow-[0_0_10px_rgba(245,192,0,0.1)]">
+                <i class="fa-solid fa-arrow-left w-5 text-center"></i> Vendor Central
+            </a>
+            <a href="hub.html" class="text-left px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-3 mb-4">
+                <i class="fa-solid fa-store w-5 text-center"></i> Marketplace Hub
+            </a>
+
+            <button onclick="window.switchTab('dashboard')" id="tab-dashboard" class="tab-btn active text-left px-4 py-3 text-sm font-semibold text-gray-300 flex items-center gap-3">
+                <i class="fa-solid fa-chart-pie w-5 text-center text-brand-accent"></i> Dashboard
+            </button>
+            <button onclick="window.switchTab('deploy-new')" id="tab-deploy-new" class="tab-btn text-left px-4 py-3 text-sm font-semibold text-gray-300 flex items-center gap-3">
+                <i class="fa-solid fa-cloud-arrow-up w-5 text-center text-brand-gold"></i> Deploy New Listing
+            </button>
+            <button onclick="window.switchTab('manage')" id="tab-manage" class="tab-btn text-left px-4 py-3 text-sm font-semibold text-gray-300 flex items-center gap-3">
+                <i class="fa-solid fa-layer-group w-5 text-center"></i> Manage Deployments
+            </button>
+            <button onclick="window.switchTab('workspace')" id="tab-workspace" class="tab-btn text-left px-4 py-3 text-sm font-semibold text-gray-300 flex items-center gap-3">
+                <i class="fa-solid fa-sliders w-5 text-center text-brand-purple"></i> Deployment Workspace
+            </button>
+        </nav>
+
+        <!-- Draft Status & Active Session in Sidebar -->
+        <div class="p-4 m-3 mt-0 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+            <div class="flex items-center justify-between text-[10px]">
+                <span class="text-gray-400">Current Product</span>
+                <span id="sidebarCurrentPid" class="font-mono text-brand-accent font-bold">None</span>
+            </div>
+            <div class="flex items-center justify-between text-[10px]">
+                <span class="text-gray-400">Draft Status</span>
+                <span id="sidebarDraftState" class="text-gray-500">Synced</span>
+            </div>
+            <div class="pt-2 border-t border-white/5 flex items-center justify-between">
+                <span id="vendorTierBadge" class="text-[9px] font-bold text-brand-gold uppercase tracking-widest">VERIFIED VENDOR</span>
+                <button onclick="window.handleSignOut()" class="text-[10px] text-gray-400 hover:text-brand-pink transition-colors" title="Sign Out">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN VIEWPORT -->
+    <main class="flex-1 overflow-y-auto relative flex flex-col h-full custom-scrollbar w-full">
+        <!-- TOPBAR -->
+        <header class="h-16 lg:h-20 border-b border-white/5 bg-[#0A0D14]/60 backdrop-blur-2xl flex items-center justify-between px-6 lg:px-10 sticky top-0 z-30 w-full">
+            <div class="flex items-center gap-4">
+                <button onclick="window.toggleSidebar()" class="lg:hidden w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white border border-white/10 z-50 relative">
+                    <i class="fa-solid fa-bars-staggered"></i>
+                </button>
+                <div>
+                    <h2 id="pageTitle" class="font-display font-black text-lg sm:text-xl text-white tracking-tight">Deployment Dashboard</h2>
+                    <p class="text-[10px] text-gray-400 font-mono hidden sm:block" id="activeProductBreadcrumb">Selected: <span class="text-brand-accent font-bold" id="crumbPid">None</span></p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="saveIndicator" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/40 border border-white/10 text-[10px] font-mono text-gray-400">
+                    <span class="w-2 h-2 rounded-full bg-brand-emerald"></span>
+                    <span id="saveIndicatorText">Cloud Synced</span>
+                </div>
+                <button onclick="window.switchTab('deploy-new')" class="bg-brand-accent text-black font-bold px-4 py-2 rounded-lg text-xs tracking-widest uppercase shadow-[0_0_15px_rgba(0,229,255,0.3)] hover:bg-white transition-all flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-rocket"></i> <span class="hidden sm:inline">New Deployment</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- CONTENT CONTAINER -->
+        <div class="p-4 lg:p-10 pb-32 max-w-[1400px] mx-auto w-full">
+
+            <!-- 1. DEPLOYMENT DASHBOARD VIEW -->
+            <section id="view-dashboard" class="deploy-view active animate-fade-in-up">
+                <!-- Summary KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="glass-panel p-6 rounded-3xl border border-brand-accent/20 relative overflow-hidden">
+                        <div class="absolute -top-10 -right-10 w-28 h-28 bg-brand-accent/10 rounded-full blur-[40px]"></div>
+                        <div class="flex justify-between items-start mb-3 relative z-10">
+                            <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Total Deployments</p>
+                            <div class="w-8 h-8 rounded-lg bg-brand-accent/10 text-brand-accent flex items-center justify-center border border-brand-accent/30"><i class="fa-solid fa-box text-xs"></i></div>
+                        </div>
+                        <h3 class="text-3xl font-black text-white font-mono tabular-nums" id="statTotalDeployments">0</h3>
+                        <p class="text-[10px] text-gray-400 mt-2 font-medium">Catalog items in system</p>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-3xl border border-brand-emerald/20 relative overflow-hidden">
+                        <div class="absolute -top-10 -right-10 w-28 h-28 bg-brand-emerald/10 rounded-full blur-[40px]"></div>
+                        <div class="flex justify-between items-start mb-3 relative z-10">
+                            <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Active / Live</p>
+                            <div class="w-8 h-8 rounded-lg bg-brand-emerald/10 text-brand-emerald flex items-center justify-center border border-brand-emerald/30"><i class="fa-solid fa-circle-check text-xs"></i></div>
+                        </div>
+                        <h3 class="text-3xl font-black text-white font-mono tabular-nums" id="statActiveDeployments">0</h3>
+                        <p class="text-[10px] text-brand-emerald mt-2 font-medium">Verified & Live on Hub</p>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-3xl border border-brand-purple/20 relative overflow-hidden">
+                        <div class="absolute -top-10 -right-10 w-28 h-28 bg-brand-purple/10 rounded-full blur-[40px]"></div>
+                        <div class="flex justify-between items-start mb-3 relative z-10">
+                            <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">V1 Content Staged</p>
+                            <div class="w-8 h-8 rounded-lg bg-brand-purple/10 text-brand-purple flex items-center justify-center border border-brand-purple/30"><i class="fa-solid fa-bolt text-xs"></i></div>
+                        </div>
+                        <h3 class="text-3xl font-black text-white font-mono tabular-nums" id="statV1Configured">0</h3>
+                        <p class="text-[10px] text-brand-purple mt-2 font-medium">Instant assets prepared</p>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-3xl border border-brand-gold/20 relative overflow-hidden">
+                        <div class="absolute -top-10 -right-10 w-28 h-28 bg-brand-gold/10 rounded-full blur-[40px]"></div>
+                        <div class="flex justify-between items-start mb-3 relative z-10">
+                            <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Drafts & Staging</p>
+                            <div class="w-8 h-8 rounded-lg bg-brand-gold/10 text-brand-gold flex items-center justify-center border border-brand-gold/30"><i class="fa-solid fa-file-pen text-xs"></i></div>
+                        </div>
+                        <h3 class="text-3xl font-black text-white font-mono tabular-nums" id="statDraftCount">0</h3>
+                        <p class="text-[10px] text-brand-gold mt-2 font-medium">Local & cloud drafts</p>
+                    </div>
+                </div>
+
+                <!-- Action Hub & Quick Insights -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="lg:col-span-2 glass-panel p-8 rounded-3xl border border-white/5">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 class="font-display font-black text-xl text-white">Recent Deployments</h3>
+                                <p class="text-xs text-gray-400">Products deployed or updated from your account</p>
+                            </div>
+                            <button onclick="window.switchTab('manage')" class="text-xs text-brand-accent hover:underline font-bold">View All <i class="fa-solid fa-arrow-right ml-1"></i></button>
+                        </div>
+
+                        <div id="dashboardRecentGrid" class="space-y-3">
+                            <div class="text-center py-12 text-gray-500 font-mono text-xs">Loading recent deployments...</div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-8 rounded-3xl border border-white/5 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-display font-black text-lg text-white mb-2">Quick Actions</h3>
+                            <p class="text-xs text-gray-400 mb-6">Fast tracks for your deployment workflow</p>
+
+                            <div class="space-y-3">
+                                <button onclick="window.switchTab('deploy-new')" class="w-full text-left p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition-all group">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-brand-accent/10 flex items-center justify-center text-brand-accent group-hover:bg-brand-accent group-hover:text-black transition-colors">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs font-bold text-white">Deploy New Listing</p>
+                                            <p class="text-[10px] text-gray-400">Initialize a fresh product or upload</p>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+                                </button>
+
+                                <button onclick="window.switchTab('manage')" class="w-full text-left p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition-all group">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-brand-purple/10 flex items-center justify-center text-brand-purple group-hover:bg-brand-purple group-hover:text-white transition-colors">
+                                            <i class="fa-solid fa-sliders"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs font-bold text-white">Manage Catalog</p>
+                                            <p class="text-[10px] text-gray-400">Edit existing product deployments</p>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+                                </button>
+
+                                <button onclick="window.resumeLastDraft()" class="w-full text-left p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition-all group">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-brand-gold/10 flex items-center justify-center text-brand-gold group-hover:bg-brand-gold group-hover:text-black transition-colors">
+                                            <i class="fa-solid fa-clock-rotate-left"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs font-bold text-white">Resume Last Draft</p>
+                                            <p class="text-[10px] text-gray-400">Restore uncommitted local draft</p>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="pt-6 border-t border-white/5 mt-6">
+                            <div class="flex items-center justify-between text-[11px]">
+                                <span class="text-gray-400 font-mono">Backend: Firestore Free Tier</span>
+                                <span class="text-brand-emerald font-bold">Spark Compliant</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. DEPLOY NEW LISTING VIEW (PRODUCT SELECTION & INITIALIZATION) -->
+            <section id="view-deploy-new" class="deploy-view animate-fade-in-up">
+                <div class="flex flex-col md:flex-row justify-between md:items-end mb-8 border-b border-white/10 pb-6 gap-4">
+                    <div>
+                        <h3 class="text-2xl md:text-3xl font-display font-black text-white tracking-tight mb-2">Deploy New Listing</h3>
+                        <p class="text-sm text-gray-400 font-medium">Select an existing catalog item to configure its deployment or initialize a brand new listing.</p>
+                    </div>
+                    <button type="button" onclick="window.initializeBlankProductDeployment()" class="bg-brand-accent text-black font-bold px-5 py-3 rounded-xl text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(0,229,255,0.3)] hover:bg-white transition-all flex items-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Initialize Fresh Listing ID
+                    </button>
+                </div>
+
+                <!-- Existing Products Selection Grid -->
+                <div class="mb-8">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 font-mono"><i class="fa-solid fa-layer-group mr-2 text-brand-gold"></i> Choose Product from Catalog</h4>
+                    <div id="catalogSelectionGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div class="col-span-full text-center py-16 text-gray-500 font-mono text-xs">Loading vendor catalog...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. MANAGE DEPLOYMENTS VIEW -->
+            <section id="view-manage" class="deploy-view animate-fade-in-up">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-end gap-4 mb-6">
+                    <div>
+                        <h3 class="text-2xl font-display font-black text-white mb-1">Manage Deployments</h3>
+                        <p class="text-xs text-gray-400">Search, filter, and inspect your active and staged product deployments.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                            <input type="text" id="deploySearchInput" oninput="window.filterDeploymentsTable()" placeholder="Search title or PID..." class="admin-input pl-10 pr-4 py-2.5 rounded-xl text-xs w-48 sm:w-64">
+                        </div>
+                        <select id="deployStatusFilter" onchange="window.filterDeploymentsTable()" class="admin-input px-3 py-2.5 rounded-xl text-xs font-bold">
+                            <option value="ALL">All Status</option>
+                            <option value="APPROVED">Live / Approved</option>
+                            <option value="PENDING">Pending Review</option>
+                            <option value="DRAFT">Draft</option>
+                            <option value="PAUSED">Paused</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-3xl border border-white/10 overflow-hidden">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-sm whitespace-nowrap min-w-[850px]">
+                            <thead class="bg-black/50 text-[10px] uppercase tracking-widest text-gray-400 border-b border-white/5">
+                                <tr>
+                                    <th class="px-6 py-4">Product & Asset</th>
+                                    <th class="px-6 py-4">Delivery Model</th>
+                                    <th class="px-6 py-4">Price / Stock</th>
+                                    <th class="px-6 py-4">V1 Content</th>
+                                    <th class="px-6 py-4">V2 Release</th>
+                                    <th class="px-6 py-4">Status</th>
+                                    <th class="px-6 py-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deploymentsTableBody" class="divide-y divide-white/5">
+                                <tr><td colspan="7" class="py-16 text-center text-gray-500 font-bold">Loading deployments...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. PRODUCT DEPLOYMENT WORKSPACE (CENTRAL HUB) -->
+            <section id="view-workspace" class="deploy-view animate-fade-in-up">
+                <div class="glass-panel p-6 sm:p-8 rounded-[2rem] border border-brand-accent/30 mb-8 relative overflow-hidden">
+                    <div class="absolute -top-16 -right-16 w-48 h-48 bg-brand-accent/10 rounded-full blur-[60px]"></div>
+
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+                        <div class="flex items-center gap-5">
+                            <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-black/50 border border-white/10 overflow-hidden shrink-0">
+                                <img id="wsProductThumb" src="images/logo.png" onerror="this.src='https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?auto=format&fit=crop&w=100&q=80'" class="w-full h-full object-cover">
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span class="text-[10px] font-mono font-bold bg-brand-gold/10 text-brand-gold px-2.5 py-0.5 rounded border border-brand-gold/20" id="wsPidBadge">PID-UNSET</span>
+                                    <span class="text-[10px] font-bold bg-white/5 text-gray-300 px-2.5 py-0.5 rounded border border-white/10" id="wsModelBadge">Model: V1</span>
+                                    <span class="text-[10px] font-bold bg-brand-emerald/10 text-brand-emerald px-2.5 py-0.5 rounded border border-brand-emerald/20" id="wsStatusBadge">Draft</span>
+                                </div>
+                                <h3 class="text-xl sm:text-2xl font-display font-black text-white truncate max-w-xl" id="wsProductTitle">No Product Selected</h3>
+                                <p class="text-xs text-gray-400 mt-1" id="wsProductSub">Please select a product from Deploy New Listing or Catalog to open its workspace.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3 w-full md:w-auto">
+                            <button onclick="window.openPreviewModal()" class="flex-1 md:flex-initial px-5 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                                <i class="fa-solid fa-eye text-brand-accent"></i> Live Preview
+                            </button>
+                            <button onclick="window.executeMainDeployment()" id="mainDeployBtn" class="flex-1 md:flex-initial px-8 py-3.5 rounded-xl bg-brand-accent text-black font-display font-black text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(0,229,255,0.4)] hover:bg-white transition-all flex items-center justify-center gap-2 cursor-pointer">
+                                <i class="fa-solid fa-rocket"></i> <span id="mainDeployBtnText">EXECUTE DEPLOYMENT</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Two Distinct Sub-Workspace Gateways (V1 vs V2) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <!-- V1 Content Gateway Card -->
+                    <div class="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-purple/30 relative flex flex-col justify-between group hover:border-brand-purple/60 transition-all">
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-brand-purple/10 border border-brand-purple/30 flex items-center justify-center text-brand-purple text-xl">
+                                    <i class="fa-solid fa-box-archive"></i>
+                                </div>
+                                <span class="text-[10px] font-mono px-3 py-1 rounded-full bg-brand-purple/10 text-brand-purple border border-brand-purple/20 font-bold" id="v1SummaryBadge">0 Configured</span>
+                            </div>
+                            <h4 class="text-xl font-display font-black text-white mb-2">V1 — Deployment Content & Setup</h4>
+                            <p class="text-xs text-gray-400 leading-relaxed mb-6">
+                                Configure the vendor's private listing details, delivery format (Account access, Drive links, WhatsApp, Software APK, etc.), pricing, taxonomy, and staging metadata.
+                            </p>
+                        </div>
+                        <button onclick="window.openV1Subpage()" class="w-full bg-brand-purple/10 border border-brand-purple/40 text-brand-purple hover:bg-brand-purple hover:text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer">
+                            <i class="fa-solid fa-sliders"></i> Open V1 Configuration Workspace
+                        </button>
+                    </div>
+
+                    <!-- V2 Release Content Gateway Card -->
+                    <div class="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-accent/30 relative flex flex-col justify-between group hover:border-brand-accent/60 transition-all">
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent text-xl">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                </div>
+                                <span class="text-[10px] font-mono px-3 py-1 rounded-full bg-brand-accent/10 text-brand-accent border border-brand-accent/20 font-bold" id="v2SummaryBadge">Pending Staging</span>
+                            </div>
+                            <h4 class="text-xl font-display font-black text-white mb-2">V2 — Release Content for Orders</h4>
+                            <p class="text-xs text-gray-400 leading-relaxed mb-6">
+                                Configure the confidential post-purchase deliverable (download link, license keys, credentials, or private access) released to verified buyers upon order completion.
+                            </p>
+                        </div>
+                        <button onclick="window.openV2Subpage()" class="w-full bg-brand-accent/10 border border-brand-accent/40 text-brand-accent hover:bg-brand-accent hover:text-black py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer">
+                            <i class="fa-solid fa-shield-halved"></i> Open V2 Release Workspace
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Workspace Live Parameters Summary -->
+                <div class="glass-panel p-6 rounded-3xl border border-white/5 space-y-4">
+                    <h5 class="text-xs font-bold text-gray-400 uppercase tracking-widest font-mono"><i class="fa-solid fa-circle-info mr-2 text-brand-accent"></i> Deployment Diagnostic & Readiness</h5>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
+                        <div class="p-4 rounded-2xl bg-black/40 border border-white/5">
+                            <span class="text-gray-500 block mb-1 text-[10px]">Normal / Promo Price</span>
+                            <span class="text-white font-bold" id="wsPriceSummary">₦0 / ₦0</span>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-black/40 border border-white/5">
+                            <span class="text-gray-500 block mb-1 text-[10px]">Category / SubCategory</span>
+                            <span class="text-white font-bold" id="wsCatSummary">DIGITAL / PRODUCT</span>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-black/40 border border-white/5">
+                            <span class="text-gray-500 block mb-1 text-[10px]">Local Draft Cache</span>
+                            <span class="text-brand-gold font-bold" id="wsDraftSummary">No Local Cache</span>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-black/40 border border-white/5">
+                            <span class="text-gray-500 block mb-1 text-[10px]">Cloud Verification</span>
+                            <span class="text-brand-emerald font-bold" id="wsCloudSummary">Ready to Deploy</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. V1 SUB-WORKSPACE: FULL DEPLOYMENT CONTENT CONFIGURATION -->
+            <section id="view-v1-subpage" class="deploy-view animate-fade-in-up">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center pb-6 mb-8 border-b border-white/10 gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <button onclick="window.switchTab('workspace')" class="text-xs text-brand-accent hover:underline flex items-center gap-1 font-bold">
+                                <i class="fa-solid fa-arrow-left"></i> Workspace
+                            </button>
+                            <span class="text-gray-500">/</span>
+                            <span class="text-xs text-brand-purple font-mono font-bold">V1 Content Configuration</span>
+                        </div>
+                        <h3 class="text-2xl font-display font-black text-white">V1 — Staging Content & Payloads</h3>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="window.saveAndReturnV1()" class="bg-brand-purple text-white font-bold px-6 py-3 rounded-xl text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:bg-white hover:text-black transition-all flex items-center gap-2 cursor-pointer">
+                            <i class="fa-solid fa-floppy-disk"></i> SAVE & RETURN
+                        </button>
+                    </div>
+                </div>
+
+                <form id="v1ConfigForm" onsubmit="event.preventDefault(); window.saveAndReturnV1();" class="space-y-8">
+                    <!-- Delivery Model & Core Taxonomy -->
+                    <div class="glass-panel p-6 sm:p-8 rounded-[2rem] border border-white/10">
+                        <h4 class="text-white font-display font-black text-base mb-6 flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-brand-purple/20 text-brand-purple flex items-center justify-center text-xs font-bold">1</div>
+                            Delivery Architecture & Classification
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 font-display">Delivery Model</label>
+                                <select id="v1_deliveryModel" onchange="window.handleV1DeliveryModelChange()" class="admin-input w-full px-4 py-3.5 rounded-xl font-bold text-brand-accent" required>
+                                    <option value="V1">V1 - Instant Digital Asset (Auto-Delivery)</option>
+                                    <option value="V2">V2 - Manual Service / Custom Work</option>
+                                    <option value="V3">V3 - Physical Product (Standard Delivery)</option>
+                                    <option value="V4">V4 - Physical Product + Shipping Logistics</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 font-display">Category</label>
+                                <select id="v1_category" onchange="window.handleV1CategoryChange()" class="admin-input w-full px-4 py-3.5 rounded-xl font-bold" required>
+                                    <option value="DIGITAL">DIGITAL</option>
+                                    <option value="PHYSICAL">PHYSICAL</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 font-display">Sub-Category</label>
+                                <select id="v1_subCategory" onchange="window.handleV1SubCategoryChange()" class="admin-input w-full px-4 py-3.5 rounded-xl font-bold" required></select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-white/5">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 font-display">Listing Title / Business Name</label>
+                                <input type="text" id="v1_title" class="admin-input w-full px-4 py-3.5 rounded-xl text-base font-bold text-white" placeholder="e.g. Masterclass Course & Pro Toolkit" required>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 font-display">Support WhatsApp Number</label>
+                                <input type="text" id="v1_whatsapp" class="admin-input w-full px-4 py-3.5 rounded-xl text-white font-mono" placeholder="2348000000000" required>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 font-display">Description</label>
+                                <textarea id="v1_description" class="admin-input w-full p-4 rounded-xl h-24 resize-none" placeholder="Detailed product description..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Commercial Pricing Matrix -->
+                    <div class="glass-panel p-6 sm:p-8 rounded-[2rem] border border-white/10">
+                        <h4 class="text-brand-emerald font-display font-black text-base mb-6 flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-brand-emerald/20 text-brand-emerald flex items-center justify-center text-xs font-bold">2</div>
+                            Commercial Pricing & Inventory
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Standard Price</label>
+                                <div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₦</span><input type="number" id="v1_normalPrice" class="admin-input w-full pl-9 pr-4 py-3.5 rounded-xl font-bold" required></div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-brand-emerald uppercase tracking-widest mb-2">Live Promo Price</label>
+                                <div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 text-brand-emerald">₦</span><input type="number" id="v1_promoPrice" class="admin-input w-full pl-9 pr-4 py-3.5 rounded-xl font-bold text-white border-brand-emerald/40" required></div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Available Stock Units</label>
+                                <input type="number" id="v1_stockUnits" class="admin-input w-full px-4 py-3.5 rounded-xl font-bold" value="50" required>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-brand-pink uppercase tracking-widest mb-2">Affiliate Commission</label>
+                                <div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 text-brand-pink">₦</span><input type="number" id="v1_commission" class="admin-input w-full pl-9 pr-4 py-3.5 rounded-xl font-bold" value="0"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MULTI-SELECT DEPLOYMENT TYPE GENERATOR -->
+                    <div class="glass-panel p-6 sm:p-8 rounded-[2rem] border border-brand-purple/30">
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center pb-4 mb-6 border-b border-white/10 gap-3">
+                            <div>
+                                <h4 class="text-brand-purple font-display font-black text-base flex items-center gap-2">
+                                    <i class="fa-solid fa-shapes"></i> Specialized Deployment Types
+                                </h4>
+                                <p class="text-xs text-gray-400 mt-1">Select and add multi-format content blocks for this listing.</p>
+                            </div>
+
+                            <div class="relative">
+                                <select id="deploymentTypeSelector" onchange="window.handleAddDeploymentType(this.value); this.value='';" class="admin-input px-4 py-2.5 rounded-xl text-xs font-bold text-brand-purple border-brand-purple/40">
+                                    <option value="">+ Add Deployment Section...</option>
+                                    <option value="account">1. Account / Access</option>
+                                    <option value="course">2. Course / Drive</option>
+                                    <option value="whatsapp">3. WhatsApp / Community</option>
+                                    <option value="service">4. Service</option>
+                                    <option value="files">5. Digital Files / Downloads</option>
+                                    <option value="software">6. Software / Application</option>
+                                    <option value="website">7. Website / Platform Access</option>
+                                    <option value="subscription">8. Membership / Subscription</option>
+                                    <option value="license">9. License Key / Activation Code</option>
+                                    <option value="physical">10. Physical Goods</option>
+                                    <option value="custom">11. Custom Deployment</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- DYNAMIC SECTIONS CONTAINER -->
+                        <div id="dynamicSectionsContainer" class="space-y-6">
+                            <!-- Injected sections appear here -->
+                            <div id="dynamicEmptyNotice" class="text-center py-10 border border-dashed border-white/10 rounded-2xl text-gray-500 text-xs">
+                                <i class="fa-solid fa-layer-group text-2xl mb-2 text-brand-purple/50"></i>
+                                <p>No specialized deployment sections added yet.</p>
+                                <p class="text-[11px] text-gray-400 mt-1">Use the dropdown above to add Account, Course, Digital Files, or Community sections.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Promotional Assets -->
+                    <div class="glass-panel p-6 sm:p-8 rounded-[2rem] border border-white/10">
+                        <h4 class="text-white font-display font-black text-base mb-6 flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold">4</div>
+                            Media & Search Taxonomy
+                        </h4>
+                        <div class="space-y-6">
+                            <div class="bg-black/40 p-5 rounded-2xl border border-white/5 flex flex-col sm:flex-row gap-4 items-center">
+                                <div class="w-full flex-1 relative">
+                                    <i class="fa-solid fa-link absolute left-4 top-1/2 -translate-y-1/2 text-brand-accent text-xs"></i>
+                                    <input type="text" id="v1_promotionalFlyer" class="admin-input w-full pl-10 pr-4 py-3.5 rounded-xl text-xs text-brand-accent font-mono" placeholder="Image URL or choose local file" required>
+                                </div>
+                                <label class="border border-brand-accent/40 text-brand-accent bg-brand-accent/10 px-6 py-3.5 rounded-xl cursor-pointer flex items-center gap-2 text-xs font-bold uppercase tracking-widest shrink-0 hover:bg-brand-accent hover:text-black transition-colors">
+                                    <i class="fa-solid fa-image"></i> Select Local Image
+                                    <input type="file" id="v1_imageUpload" class="hidden" accept="image/*" onchange="window.handleFlyerImageSelect(event)">
+                                </label>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Search Tags (Comma separated)</label>
+                                <input type="text" id="v1_searchTags" class="admin-input w-full px-4 py-3.5 rounded-xl text-brand-gold font-mono text-xs" placeholder="course, premium, software, bundle">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- V1 SAVE & RETURN ACTION (MANDATORY REQUIREMENT: Must NOT be the main deploy button) -->
+                    <div class="pt-6 pb-12 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <button type="button" onclick="window.switchTab('workspace')" class="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-widest">
+                            Cancel & Return
+                        </button>
+                        <button type="submit" class="w-full sm:w-auto bg-brand-purple text-white font-display font-black text-base px-12 py-4 rounded-2xl uppercase tracking-widest shadow-[0_0_25px_rgba(168,85,247,0.4)] hover:bg-white hover:text-black transition-all flex items-center justify-center gap-3 cursor-pointer">
+                            <i class="fa-solid fa-floppy-disk"></i> SAVE & RETURN TO WORKSPACE
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- 6. V2 SUB-WORKSPACE: RELEASE CONTENT FOR PURCHASED ORDERS -->
+            <section id="view-v2-subpage" class="deploy-view animate-fade-in-up">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center pb-6 mb-8 border-b border-white/10 gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <button onclick="window.switchTab('workspace')" class="text-xs text-brand-accent hover:underline flex items-center gap-1 font-bold">
+                                <i class="fa-solid fa-arrow-left"></i> Workspace
+                            </button>
+                            <span class="text-gray-500">/</span>
+                            <span class="text-xs text-brand-accent font-mono font-bold">V2 Order Release Setup</span>
+                        </div>
+                        <h3 class="text-2xl font-display font-black text-white">V2 — Release Content for Orders</h3>
+                    </div>
+                    <button type="button" onclick="window.saveAndReturnV2()" class="bg-brand-accent text-black font-bold px-6 py-3 rounded-xl text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(0,229,255,0.4)] hover:bg-white transition-all flex items-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-floppy-disk"></i> SAVE & RETURN
+                    </button>
+                </div>
+
+                <div class="glass-panel p-6 sm:p-8 rounded-[2rem] border border-brand-accent/30 space-y-6 max-w-4xl">
+                    <div class="bg-brand-accent/5 p-4 rounded-2xl border border-brand-accent/20 text-xs text-gray-300 leading-relaxed">
+                        <span class="text-brand-accent font-bold"><i class="fa-solid fa-shield-halved mr-1"></i> Private Buyer Deliverable Security:</span>
+                        This payload will only be released to eligible buyers after verified purchase clearance. Saving this draft does not expose it to unauthorized users.
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 font-display">Release Format Type</label>
+                        <select id="v2_payloadType" class="admin-input w-full px-4 py-3.5 rounded-xl text-sm font-bold text-brand-accent">
+                            <option value="LINK">External Download URL (Google Drive, Dropbox, Web)</option>
+                            <option value="CREDENTIALS">Account Credentials & Access Tokens</option>
+                            <option value="LICENSE">License Key / Activation Serial</option>
+                            <option value="INSTRUCTIONS">Step-by-Step Fulfillment Instructions</option>
+                            <option value="HYBRID">Combined Asset & Instructions</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 font-display">Deliverable Payload (URL / Credentials / Codes)</label>
+                        <textarea id="v2_payloadData" class="admin-input w-full p-4 rounded-xl text-sm h-36 font-mono resize-none" placeholder="https://drive.google.com/drive/folders/...&#10;OR&#10;Username: user@domain.com&#10;Password: secret_pass&#10;Activation Key: XXXX-XXXX-XXXX" required></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 font-display">Buyer Fulfillment Instructions (Displayed in Buyer's Vault)</label>
+                        <textarea id="v2_deliveryInstructions" class="admin-input w-full p-4 rounded-xl text-sm h-24 resize-none" placeholder="Instructions on how to access, download, or activate the deliverable..."></textarea>
+                    </div>
+
+                    <div class="bg-black/30 p-4 rounded-xl border border-white/5 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold text-white">Manual Release Check</p>
+                            <p class="text-[10px] text-gray-400">Order must be approved by vendor before funds clear to withdrawable balance.</p>
+                        </div>
+                        <span class="px-3 py-1 rounded bg-yellow-500/10 text-yellow-500 text-[10px] font-bold uppercase tracking-widest border border-yellow-500/20">Standard Escrow</span>
+                    </div>
+
+                    <!-- V2 SAVE & RETURN ACTION (MANDATORY REQUIREMENT) -->
+                    <div class="pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <button type="button" onclick="window.switchTab('workspace')" class="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-widest">
+                            Cancel & Return
+                        </button>
+                        <button type="button" onclick="window.saveAndReturnV2()" class="w-full sm:w-auto bg-brand-accent text-black font-display font-black text-base px-12 py-4 rounded-2xl uppercase tracking-widest shadow-[0_0_20px_rgba(0,229,255,0.4)] hover:bg-white transition-all flex items-center justify-center gap-3 cursor-pointer">
+                            <i class="fa-solid fa-floppy-disk"></i> SAVE & RETURN TO WORKSPACE
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- FLOATING STATUS TOAST -->
+    <div id="toast" class="fixed bottom-8 right-8 px-6 py-4 rounded-xl shadow-[0_10px_30px_rgba(0,229,255,0.2)] transform translate-y-32 opacity-0 transition-all duration-300 z-[500] flex items-center gap-3 bg-[#0A0D14]/95 backdrop-blur-2xl border border-brand-accent/40 pointer-events-none">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-brand-accent text-lg"></i> 
+        <span id="toastMsg" class="text-sm font-bold text-white tracking-wide">Operation Completed</span>
+    </div>
+
+    <!-- FIREBASE & DEPLOYMENT ENGINE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, getDoc, setDoc, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // PRESERVED FIREBASE CONFIGURATION
+        const firebaseConfig = {
+            apiKey: "AIzaSyCefntIh-4jl9ku4lPEmnyEC4VoT_MXxFk",
+            authDomain: "vfa-product.firebaseapp.com",
+            projectId: "vfa-product",
+            storageBucket: "vfa-product.firebasestorage.app",
+            messagingSenderId: "245947400859",
+            appId: "1:245947400859:web:b92bf4ea3a8cbabc713c3e"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Core Application State
+        window.currentUser = null;
+        window.vendorData = null;
+        window.vendorCatalog = [];
+        window.activeProductId = null;
+        window.activeListingDocId = null;
+        window.activeDraft = {};
+        window.activeV1Sections = new Set();
+
+        const subCatSchema = {
+            "DIGITAL": ["PRODUCT", "SERVICE", "COURSE", "SUBSCRIPTION", "OTHERS"],
+            "PHYSICAL": [
+                "SUB_ELECTRONICS_MOBILE", 
+                "SUB_PARTS_HARDWARE", 
+                "SUB_SOLAR_POWER", 
+                "SUB_FASHION_APPAREL", 
+                "SUB_GENERAL_TOOLS",
+                "PRODUCT / GOODS", 
+                "PROPERTY", 
+                "APPLIANCES", 
+                "COURSE / SEMINAR", 
+                "SHOWS / EVENTS"
+            ]
+        };
+
+        const subCatLabels = {
+            "SUB_ELECTRONICS_MOBILE": "Mobile Devices, Tablets & Electronics",
+            "SUB_PARTS_HARDWARE": "Hardware, Spare Parts & Components",
+            "SUB_SOLAR_POWER": "Solar & Power Equipment",
+            "SUB_FASHION_APPAREL": "Fashion, Apparel & Wearables",
+            "SUB_GENERAL_TOOLS": "General Merchandise & Tools"
+        };
+
+        // --- AUTH CLEARANCE GATE ---
+        onAuthStateChanged(auth, async (user) => {
+            const gate = document.getElementById('securityGate');
+            const verifyingBox = document.getElementById('gateVerifying');
+            const loginPrompt = document.getElementById('gateLoginPrompt');
+
+            if (user) {
+                try {
+                    const uDoc = await getDoc(doc(db, "users", user.uid));
+                    if (uDoc.exists() && uDoc.data().isVendor === true) {
+                        window.currentUser = user;
+                        window.vendorData = uDoc.data();
+
+                        document.getElementById('vendorTierBadge').innerText = window.vendorData.vendorTier || "VERIFIED VENDOR";
+                        
+                        // Load vendor's catalog and initialize
+                        await window.fetchVendorCatalog();
+                        window.calculateDashboardMetrics();
+
+                        // Check if URL has a specific PID parameter: ?pid=PID-XXXX
+                        const params = new URLSearchParams(window.location.search);
+                        const targetPid = params.get('pid');
+                        if (targetPid) {
+                            window.selectProductForDeploy(targetPid);
+                        }
+
+                        // Unlock UI
+                        gate.classList.add('opacity-0');
+                        setTimeout(() => gate.classList.add('hidden'), 400);
+                        return;
+                    } else {
+                        // User exists but is not marked as vendor
+                        verifyingBox.classList.add('hidden');
+                        loginPrompt.classList.remove('hidden');
+                        document.getElementById('gateErrorBox').innerText = "Logged in user is not a registered vendor. Please log in with a verified vendor account.";
+                        document.getElementById('gateErrorBox').classList.remove('hidden');
+                    }
+                } catch(e) {
+                    console.error("Auth verification error:", e);
+                    verifyingBox.classList.add('hidden');
+                    loginPrompt.classList.remove('hidden');
+                }
+            } else {
+                // Not authenticated: Prompt to login
+                verifyingBox.classList.add('hidden');
+                loginPrompt.classList.remove('hidden');
+            }
+        });
+
+        window.handleGateLogin = async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('gateEmail').value.trim();
+            const password = document.getElementById('gatePassword').value;
+            const btn = document.getElementById('gateLoginBtn');
+            const errBox = document.getElementById('gateErrorBox');
+
+            errBox.classList.add('hidden');
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Authenticating...`;
+            btn.disabled = true;
+
+            try {
+                const cred = await signInWithEmailAndPassword(auth, email, password);
+                const uDoc = await getDoc(doc(db, "users", cred.user.uid));
+                if(uDoc.exists() && uDoc.data().isVendor === true) {
+                    window.showToast("Cleared! Access Granted.");
+                } else {
+                    await signOut(auth);
+                    throw new Error("This account is not registered as a verified vendor.");
+                }
+            } catch (err) {
+                errBox.innerText = err.message.replace('Firebase: ', '');
+                errBox.classList.remove('hidden');
+            } finally {
+                btn.innerHTML = `<i class="fa-solid fa-key"></i> Authenticate & Enter`;
+                btn.disabled = false;
+            }
+        };
+
+        window.handleSignOut = async function() {
+            window.showConfirm("Sign Out", "Are you sure you want to sign out of Deployment Central?", async () => {
+                await signOut(auth);
+                window.location.reload();
+            });
+        };
+
+        // --- FETCH VENDOR CATALOG ---
+        window.fetchVendorCatalog = async function() {
+            if(!window.currentUser) return;
+            try {
+                const qListings = query(collection(db, "listings"), where("vendorId", "==", window.currentUser.uid));
+                const snap = await getDocs(qListings);
+                window.vendorCatalog = [];
+                snap.forEach(d => {
+                    const data = d.data();
+                    data.docId = d.id;
+                    window.vendorCatalog.push(data);
+                });
+                window.renderCatalogSelectionGrid();
+                window.renderDeploymentsTable();
+                window.renderDashboardRecentGrid();
+            } catch(e) {
+                console.error("Catalog fetch error:", e);
+                window.showToast("Failed to fetch product catalog: " + e.message, true);
+            }
+        };
+
+        // --- DASHBOARD METRICS CALCULATION ---
+        window.calculateDashboardMetrics = function() {
+            const total = window.vendorCatalog.length;
+            const active = window.vendorCatalog.filter(l => l.verificationStatus === 'approved' && !l.isPaused).length;
+            const v1Configured = window.vendorCatalog.filter(l => l.v1Payloads && Object.keys(l.v1Payloads).length > 0).length;
+
+            // Count local drafts stored in localStorage
+            let draftCount = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(`vfa_deploy_draft_${window.currentUser.uid}`)) {
+                    draftCount++;
+                }
+            }
+
+            document.getElementById('statTotalDeployments').innerText = total;
+            document.getElementById('statActiveDeployments').innerText = active;
+            document.getElementById('statV1Configured').innerText = v1Configured;
+            document.getElementById('statDraftCount').innerText = draftCount;
+        };
+
+        // --- RENDER CATALOG SELECTION GRID ---
+        window.renderCatalogSelectionGrid = function() {
+            const grid = document.getElementById('catalogSelectionGrid');
+            if (!grid) return;
+            grid.innerHTML = "";
+
+            if (window.vendorCatalog.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-16 glass-panel rounded-2xl">
+                        <i class="fa-solid fa-box-open text-3xl mb-3 text-gray-500"></i>
+                        <p class="text-gray-400 font-bold">No catalog products found.</p>
+                        <button onclick="window.initializeBlankProductDeployment()" class="mt-4 px-5 py-2.5 bg-brand-accent text-black font-bold text-xs uppercase rounded-xl">Create First Listing</button>
+                    </div>
+                `;
+                return;
+            }
+
+            window.vendorCatalog.forEach(prod => {
+                const pid = prod.listingId || prod.docId;
+                const hasV1 = prod.v1Payloads && Object.keys(prod.v1Payloads).length > 0;
+                const isSelected = window.activeProductId === pid;
+
+                grid.innerHTML += `
+                    <div class="glass-panel p-5 rounded-2xl border ${isSelected ? 'border-brand-accent' : 'border-white/5'} flex flex-col justify-between group hover:border-white/20 transition-all">
+                        <div>
+                            <div class="h-32 rounded-xl mb-4 overflow-hidden bg-black/40 relative">
+                                <img src="${prod.imageUrl || 'images/logo.png'}" onerror="this.src='https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?auto=format&fit=crop&w=100&q=80'" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                <span class="absolute top-2 right-2 px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-black/70 text-brand-gold border border-brand-gold/30">${prod.deliveryModel || 'V1'}</span>
+                            </div>
+                            <span class="text-[9px] font-mono text-gray-500">${pid}</span>
+                            <h4 class="font-bold text-white text-base truncate mb-1">${prod.businessName || 'Untitled Asset'}</h4>
+                            <div class="flex justify-between items-center text-xs mb-4">
+                                <span class="text-brand-emerald font-mono font-bold">₦${(prod.promoPrice || 0).toLocaleString()}</span>
+                                <span class="text-[9px] text-gray-400 uppercase tracking-widest">${prod.subCategory || prod.category || 'DIGITAL'}</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 pt-2 border-t border-white/5">
+                            <div class="flex items-center justify-between text-[10px] text-gray-400">
+                                <span>V1 Staging:</span>
+                                <span class="${hasV1 ? 'text-brand-purple font-bold' : 'text-gray-500'}">${hasV1 ? 'Configured' : 'Missing'}</span>
+                            </div>
+                            <button onclick="window.selectProductForDeploy('${pid}')" class="w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${isSelected ? 'bg-brand-accent text-black shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'} cursor-pointer flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-sliders"></i> ${isSelected ? 'Active In Workspace' : 'Select For Deployment'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        };
+
+        // --- RENDER DEPLOYMENTS TABLE ---
+        window.renderDeploymentsTable = function(filtered = null) {
+            const tbody = document.getElementById('deploymentsTableBody');
+            if(!tbody) return;
+            const data = filtered || window.vendorCatalog;
+            tbody.innerHTML = "";
+
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-12 text-center text-gray-500 font-bold">No deployments matching criteria.</td></tr>`;
+                return;
+            }
+
+            data.forEach(prod => {
+                const pid = prod.listingId || prod.docId;
+                const hasV1 = prod.v1Payloads && Object.keys(prod.v1Payloads).length > 0;
+                const hasV2 = !!prod.deliveryPayload;
+                const stat = (prod.verificationStatus || 'Pending').toUpperCase();
+
+                let statClass = 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
+                if (stat === 'APPROVED') statClass = 'text-brand-emerald bg-brand-emerald/10 border-brand-emerald/20';
+                if (prod.isPaused) statClass = 'text-gray-400 bg-gray-400/10 border-gray-400/20';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-white/[0.03] transition-colors">
+                        <td class="py-4 px-6">
+                            <div class="flex items-center gap-3">
+                                <img src="${prod.imageUrl || 'images/logo.png'}" onerror="this.src='https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?auto=format&fit=crop&w=100&q=80'" class="w-10 h-10 rounded-xl object-cover border border-white/10 shrink-0">
+                                <div class="min-w-0">
+                                    <p class="font-bold text-white text-xs truncate max-w-[200px]">${prod.businessName || 'Untitled'}</p>
+                                    <p class="text-[9px] font-mono text-brand-gold">${pid}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-4 px-6 font-mono font-bold text-xs text-brand-accent">${prod.deliveryModel || 'V1'}</td>
+                        <td class="py-4 px-6 font-mono text-xs">
+                            <span class="text-white font-bold">₦${(prod.promoPrice || 0).toLocaleString()}</span>
+                            <span class="text-gray-500 block text-[10px]">Stock: ${prod.stockUnits || 0}</span>
+                        </td>
+                        <td class="py-4 px-6">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${hasV1 ? 'text-brand-purple bg-brand-purple/10 border-brand-purple/30' : 'text-gray-500 bg-white/5 border-white/5'}">${hasV1 ? 'Configured' : 'Missing'}</span>
+                        </td>
+                        <td class="py-4 px-6">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${hasV2 ? 'text-brand-accent bg-brand-accent/10 border-brand-accent/30' : 'text-gray-500 bg-white/5 border-white/5'}">${hasV2 ? 'Payload Set' : 'Pending'}</span>
+                        </td>
+                        <td class="py-4 px-6">
+                            <span class="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded border ${statClass}">${stat}</span>
+                        </td>
+                        <td class="py-4 px-6 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button onclick="window.selectProductForDeploy('${pid}')" class="px-3 py-1.5 rounded-lg bg-brand-accent/10 text-brand-accent hover:bg-brand-accent hover:text-black border border-brand-accent/30 text-[10px] uppercase font-bold tracking-widest transition-all">
+                                    Workspace
+                                </button>
+                                <button onclick="window.copyToClipboard('${pid}')" class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Copy PID">
+                                    <i class="fa-solid fa-copy"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        };
+
+        window.filterDeploymentsTable = function() {
+            const queryText = (document.getElementById('deploySearchInput')?.value || '').toLowerCase();
+            const statusFilter = document.getElementById('deployStatusFilter')?.value || 'ALL';
+
+            const filtered = window.vendorCatalog.filter(p => {
+                const pid = (p.listingId || p.docId || '').toLowerCase();
+                const name = (p.businessName || '').toLowerCase();
+                const matchesQuery = pid.includes(queryText) || name.includes(queryText);
+
+                const stat = (p.verificationStatus || 'Pending').toUpperCase();
+                let matchesStatus = true;
+                if(statusFilter === 'APPROVED') matchesStatus = stat === 'APPROVED' && !p.isPaused;
+                else if(statusFilter === 'PENDING') matchesStatus = stat === 'PENDING';
+                else if(statusFilter === 'PAUSED') matchesStatus = !!p.isPaused;
+                else if(statusFilter === 'DRAFT') matchesStatus = !p.verificationStatus || p.verificationStatus === 'draft';
+
+                return matchesQuery && matchesStatus;
+            });
+
+            window.renderDeploymentsTable(filtered);
+        };
+
+        // --- RENDER RECENT DEPLOYMENTS ON DASHBOARD ---
+        window.renderDashboardRecentGrid = function() {
+            const grid = document.getElementById('dashboardRecentGrid');
+            if(!grid) return;
+            grid.innerHTML = "";
+
+            if(window.vendorCatalog.length === 0) {
+                grid.innerHTML = `<div class="text-center py-8 text-gray-500 font-mono text-xs">No deployments deployed yet. Click "Deploy New Listing" to begin.</div>`;
+                return;
+            }
+
+            const recents = window.vendorCatalog.slice(0, 4);
+            recents.forEach(p => {
+                const pid = p.listingId || p.docId;
+                grid.innerHTML += `
+                    <div class="p-3.5 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <img src="${p.imageUrl || 'images/logo.png'}" onerror="this.src='https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?auto=format&fit=crop&w=100&q=80'" class="w-9 h-9 rounded-xl object-cover border border-white/10 shrink-0">
+                            <div class="min-w-0">
+                                <h5 class="text-xs font-bold text-white truncate">${p.businessName || 'Untitled'}</h5>
+                                <p class="text-[9px] font-mono text-gray-400">${pid} · ${p.deliveryModel || 'V1'}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <span class="text-xs font-mono font-bold text-brand-emerald">₦${(p.promoPrice || 0).toLocaleString()}</span>
+                            <button onclick="window.selectProductForDeploy('${pid}')" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-brand-accent hover:text-black border border-white/10 text-[10px] font-bold uppercase transition-all">
+                                Open
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        };
+
+        // --- PRODUCT SELECTION & WORKSPACE INITIALIZATION ---
+        window.generateUniquePid = function() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let res = 'PID-';
+            for (let i = 0; i < 6; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+            return res + '-VFA';
+        };
+
+        window.initializeBlankProductDeployment = function() {
+            const newPid = window.generateUniquePid();
+            window.activeProductId = newPid;
+            window.activeListingDocId = null;
+            window.activeDraft = {
+                listingId: newPid,
+                businessName: "New Product Listing",
+                deliveryModel: "V1",
+                category: "DIGITAL",
+                subCategory: "PRODUCT",
+                normalPrice: 0,
+                promoPrice: 0,
+                stockUnits: 50,
+                commissionPerSale: 0,
+                whatsappNumber: window.vendorData?.whatsappNumber || "2348000000000",
+                shortDescription: "",
+                v1Payloads: {},
+                v2Payload: "",
+                deliveryInstructions: "",
+                searchTags: [],
+                imageUrl: ""
+            };
+
+            window.bindDraftToWorkspace();
+            window.switchTab('workspace');
+            window.showToast(`Initialized fresh listing ${newPid}`);
+        };
+
+        window.selectProductForDeploy = function(pid) {
+            window.activeProductId = pid;
+            const existing = window.vendorCatalog.find(p => (p.listingId === pid || p.docId === pid));
+            
+            if (existing) {
+                window.activeListingDocId = existing.docId;
+                window.activeDraft = JSON.parse(JSON.stringify(existing));
+                window.activeDraft.listingId = existing.listingId || existing.docId;
+            } else {
+                window.activeListingDocId = null;
+                window.activeDraft = { listingId: pid, businessName: "New Deployment", deliveryModel: "V1", category: "DIGITAL", subCategory: "PRODUCT" };
+            }
+
+            // Check for uncommitted localStorage draft
+            const draftKey = `vfa_deploy_draft_${window.currentUser.uid}_${pid}`;
+            const localSaved = localStorage.getItem(draftKey);
+            if (localSaved) {
+                try {
+                    const parsedLocal = JSON.parse(localSaved);
+                    window.activeDraft = Object.assign({}, window.activeDraft, parsedLocal);
+                    window.showToast("Restored uncommitted local draft for " + pid);
+                } catch(e) {}
+            }
+
+            window.bindDraftToWorkspace();
+            window.renderCatalogSelectionGrid();
+            window.switchTab('workspace');
+        };
+
+        window.resumeLastDraft = function() {
+            if (!window.currentUser) return;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(`vfa_deploy_draft_${window.currentUser.uid}`)) {
+                    const parts = key.split('_');
+                    const pid = parts[parts.length - 1];
+                    if (pid) {
+                        window.selectProductForDeploy(pid);
+                        return;
+                    }
+                }
+            }
+            window.showToast("No active local drafts found.", true);
+        };
+
+        window.bindDraftToWorkspace = function() {
+            const d = window.activeDraft || {};
+            const pid = d.listingId || window.activeProductId || 'UNSET';
+
+            document.getElementById('crumbPid').innerText = pid;
+            document.getElementById('sidebarCurrentPid').innerText = pid.substring(0, 10);
+            document.getElementById('wsPidBadge').innerText = pid;
+            document.getElementById('wsProductTitle').innerText = d.businessName || 'Untitled Listing';
+            document.getElementById('wsModelBadge').innerText = 'Model: ' + (d.deliveryModel || 'V1');
+            document.getElementById('wsStatusBadge').innerText = (d.verificationStatus || 'Draft').toUpperCase();
+            
+            if (d.imageUrl) document.getElementById('wsProductThumb').src = d.imageUrl;
+
+            const hasV1 = d.v1Payloads && Object.keys(d.v1Payloads).length > 0;
+            const hasV2 = !!(d.v2Payload || d.deliveryPayload);
+
+            document.getElementById('v1SummaryBadge').innerText = hasV1 ? 'V1 Configured' : 'Missing Content';
+            document.getElementById('v1SummaryBadge').className = `text-[10px] font-mono px-3 py-1 rounded-full font-bold border ${hasV1 ? 'bg-brand-purple/10 text-brand-purple border-brand-purple/20' : 'bg-white/5 text-gray-500 border-white/10'}`;
+
+            document.getElementById('v2SummaryBadge').innerText = hasV2 ? 'V2 Staged' : 'Pending Staging';
+            document.getElementById('v2SummaryBadge').className = `text-[10px] font-mono px-3 py-1 rounded-full font-bold border ${hasV2 ? 'bg-brand-accent/10 text-brand-accent border-brand-accent/20' : 'bg-white/5 text-gray-500 border-white/10'}`;
+
+            document.getElementById('wsPriceSummary').innerText = `₦${(d.normalPrice||0).toLocaleString()} / ₦${(d.promoPrice||0).toLocaleString()}`;
+            document.getElementById('wsCatSummary').innerText = `${d.category || 'DIGITAL'} / ${d.subCategory || 'PRODUCT'}`;
+
+            // Check draft storage
+            const draftKey = `vfa_deploy_draft_${window.currentUser?.uid}_${pid}`;
+            const isLocal = !!localStorage.getItem(draftKey);
+            document.getElementById('wsDraftSummary').innerText = isLocal ? 'Local Draft Active' : 'Synced with Cloud';
+            document.getElementById('sidebarDraftState').innerText = isLocal ? 'Unsaved' : 'Synced';
+            document.getElementById('sidebarDraftState').className = isLocal ? 'text-brand-gold font-bold' : 'text-gray-500';
+
+            const ind = document.getElementById('saveIndicator');
+            const indText = document.getElementById('saveIndicatorText');
+            if (isLocal) {
+                ind.classList.remove('hidden');
+                indText.innerText = "Draft Saved Locally";
+                ind.querySelector('span').className = "w-2 h-2 rounded-full bg-brand-gold animate-pulse";
+            } else {
+                ind.classList.remove('hidden');
+                indText.innerText = "Cloud Synced";
+                ind.querySelector('span').className = "w-2 h-2 rounded-full bg-brand-emerald";
+            }
+        };
+
+        // --- SUBPAGE CONTROLLERS: V1 & V2 ---
+        window.openV1Subpage = function() {
+            if (!window.activeProductId) {
+                window.showToast("Please select or initialize a product first.", true);
+                window.switchTab('deploy-new');
+                return;
+            }
+            window.populateV1FormFromDraft();
+            window.switchTab('v1-subpage');
+        };
+
+        window.openV2Subpage = function() {
+            if (!window.activeProductId) {
+                window.showToast("Please select or initialize a product first.", true);
+                window.switchTab('deploy-new');
+                return;
+            }
+            window.populateV2FormFromDraft();
+            window.switchTab('v2-subpage');
+        };
+
+        // Populate V1 form fields
+        window.populateV1FormFromDraft = function() {
+            const d = window.activeDraft || {};
+            document.getElementById('v1_deliveryModel').value = d.deliveryModel || 'V1';
+            document.getElementById('v1_category').value = d.category || 'DIGITAL';
+            window.handleV1CategoryChange();
+
+            setTimeout(() => {
+                if (d.subCategory) document.getElementById('v1_subCategory').value = d.subCategory;
+                document.getElementById('v1_title').value = d.businessName || '';
+                document.getElementById('v1_whatsapp').value = d.whatsappNumber || '';
+                document.getElementById('v1_description').value = d.shortDescription || '';
+                document.getElementById('v1_normalPrice').value = d.normalPrice || '';
+                document.getElementById('v1_promoPrice').value = d.promoPrice || '';
+                document.getElementById('v1_stockUnits').value = d.stockUnits || 50;
+                document.getElementById('v1_commission').value = d.commissionPerSale || 0;
+                document.getElementById('v1_promotionalFlyer').value = d.imageUrl || '';
+                document.getElementById('v1_searchTags').value = (d.searchTags || []).join(', ');
+
+                // Populate specialized dynamic sections if present in specificDetails or v1Payloads
+                window.activeV1Sections.clear();
+                document.getElementById('dynamicSectionsContainer').innerHTML = "";
+                document.getElementById('dynamicEmptyNotice')?.classList.remove('hidden');
+
+                if (d.v1Payloads?.link || d.v1Payloads?.text || d.v1Payloads?.fileName) {
+                    window.handleAddDeploymentType('files');
+                }
+                if (d.specificDetails?.subscriptionType) {
+                    window.handleAddDeploymentType('subscription');
+                }
+                if (d.specificDetails?.accountType) {
+                    window.handleAddDeploymentType('account');
+                }
+                if (d.specificDetails?.course) {
+                    window.handleAddDeploymentType('course');
+                }
+            }, 30);
+        };
+
+        window.handleV1CategoryChange = function() {
+            const cat = document.getElementById('v1_category')?.value || 'DIGITAL';
+            const subSel = document.getElementById('v1_subCategory');
+            if (!subSel) return;
+            subSel.innerHTML = "";
+            (subCatSchema[cat] || []).forEach(opt => {
+                const label = subCatLabels[opt] || opt;
+                subSel.innerHTML += `<option value="${opt}">${label}</option>`;
+            });
+        };
+
+        window.handleV1DeliveryModelChange = function() {
+            const mod = document.getElementById('v1_deliveryModel')?.value || 'V1';
+            if (mod === 'V1' || mod === 'V2') {
+                document.getElementById('v1_category').value = 'DIGITAL';
+            } else {
+                document.getElementById('v1_category').value = 'PHYSICAL';
+            }
+            window.handleV1CategoryChange();
+        };
+
+        // Multi-select Deployment Section Generator
+        window.handleAddDeploymentType = function(type) {
+            if (!type || window.activeV1Sections.has(type)) return;
+            window.activeV1Sections.add(type);
+            document.getElementById('dynamicEmptyNotice')?.classList.add('hidden');
+
+            const container = document.getElementById('dynamicSectionsContainer');
+            const secId = `dynamic_section_${type}`;
+
+            let innerContent = '';
+            let title = '';
+
+            if (type === 'account') {
+                title = 'Account / Credentials Access Configuration';
+                innerContent = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Account Category</label>
+                            <select id="acc_category" class="admin-input w-full px-4 py-3 rounded-xl text-xs font-bold text-brand-purple">
+                                <option value="Subscription Account">Subscription Account</option>
+                                <option value="Social Media Account">Social Media Account</option>
+                                <option value="Software Account">Software Account</option>
+                                <option value="Cloud Storage Account">Cloud Storage Account</option>
+                                <option value="Learning Platform Account">Learning Platform Account</option>
+                                <option value="Hosting / Server Account">Hosting / Server Account</option>
+                                <option value="Other Account">Other Account</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Access Method</label>
+                            <input type="text" id="acc_method" class="admin-input w-full px-4 py-3 rounded-xl text-xs" placeholder="e.g. Email & Password credentials + OTP Guide">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Staging Instructions / Notes</label>
+                            <textarea id="acc_instructions" class="admin-input w-full p-3 rounded-xl text-xs h-20 resize-none" placeholder="Enter private onboarding instructions..."></textarea>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'course') {
+                title = 'Course / Drive Learning Materials';
+                innerContent = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Format Type</label>
+                            <select id="crs_type" class="admin-input w-full px-4 py-3 rounded-xl text-xs font-bold text-brand-purple">
+                                <option value="Digital Course">Digital Video Course</option>
+                                <option value="Document Course">Document / PDF Curriculum</option>
+                                <option value="Masterclasses">Masterclass Series</option>
+                                <option value="Course Bundles">Course Bundle Archive</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Instructor / Curriculum Host</label>
+                            <input type="text" id="crs_instructor" class="admin-input w-full px-4 py-3 rounded-xl text-xs" placeholder="e.g. ViraForce Academy">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Drive / Course Repository Link</label>
+                            <input type="url" id="crs_driveUrl" class="admin-input w-full px-4 py-3 rounded-xl text-xs font-mono text-brand-accent" placeholder="https://drive.google.com/...">
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'whatsapp') {
+                title = 'WhatsApp Community / Group Access';
+                innerContent = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Community Type</label>
+                            <select id="wa_type" class="admin-input w-full px-4 py-3 rounded-xl text-xs font-bold text-brand-emerald">
+                                <option value="WhatsApp Group">WhatsApp VIP Group</option>
+                                <option value="WhatsApp Community">WhatsApp Community</option>
+                                <option value="WhatsApp Channel">Broadcast Channel</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Private Invitation Link</label>
+                            <input type="url" id="wa_inviteLink" class="admin-input w-full px-4 py-3 rounded-xl text-xs font-mono text-brand-emerald" placeholder="https://chat.whatsapp.com/...">
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'files') {
+                title = 'Digital Files / Instant Payloads (V1)';
+                innerContent = `
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Cloud Download URL (Drive / S3 / Direct)</label>
+                            <input type="url" id="v1_link" class="admin-input w-full px-4 py-3 rounded-xl text-xs font-mono text-brand-accent" placeholder="https://...">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Credentials / Immediate Access Instructions</label>
+                            <textarea id="v1_text" class="admin-input w-full p-3 rounded-xl text-xs h-20 font-mono resize-none" placeholder="Account logins, keys, or instant steps..."></textarea>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'subscription') {
+                title = 'Membership & AI / Streaming Subscription Setup';
+                innerContent = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Platform Service</label>
+                            <input type="text" id="sub_service" class="admin-input w-full px-4 py-3 rounded-xl text-xs font-bold text-brand-purple" placeholder="e.g. ChatGPT Plus / Netflix UHD">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Plan Duration</label>
+                            <select id="sub_duration" class="admin-input w-full px-4 py-3 rounded-xl text-xs">
+                                <option value="1 Month">1 Month</option>
+                                <option value="3 Months">3 Months</option>
+                                <option value="6 Months">6 Months</option>
+                                <option value="1 Year">1 Year</option>
+                                <option value="Lifetime Access">Lifetime Access</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+            } else {
+                title = `Configuration: ${type.toUpperCase()}`;
+                innerContent = `
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Specific Metadata & Details</label>
+                        <textarea id="custom_details_${type}" class="admin-input w-full p-3 rounded-xl text-xs h-20 resize-none" placeholder="Enter configuration parameters..."></textarea>
+                    </div>
+                `;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.id = secId;
+            wrapper.className = "bg-black/40 p-5 rounded-2xl border border-white/10 space-y-4 animate-fade-in-up relative";
+            wrapper.innerHTML = `
+                <div class="flex justify-between items-center pb-2 border-b border-white/5">
+                    <span class="text-xs font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-cube text-brand-purple"></i> ${title}
+                    </span>
+                    <button type="button" onclick="window.handleRemoveDeploymentType('${type}')" class="text-gray-500 hover:text-brand-pink text-xs transition-colors" title="Remove section">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+                ${innerContent}
+            `;
+            container.appendChild(wrapper);
+        };
+
+        window.handleRemoveDeploymentType = function(type) {
+            window.activeV1Sections.delete(type);
+            const el = document.getElementById(`dynamic_section_${type}`);
+            if (el) el.remove();
+            if (window.activeV1Sections.size === 0) {
+                document.getElementById('dynamicEmptyNotice')?.classList.remove('hidden');
+            }
+        };
+
+        window.handleFlyerImageSelect = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            window.compressImage(file, 800, 800, 0.7).then(b64 => {
+                document.getElementById('v1_promotionalFlyer').value = b64;
+                window.showToast("Local asset compressed and staged.");
+            }).catch(err => {
+                window.showToast("Image compression failed", true);
+            });
+        };
+
+        window.compressImage = function(file, maxW, maxH, q) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = ev => {
+                    const img = new Image();
+                    img.src = ev.target.result;
+                    img.onload = () => {
+                        let w = img.width, h = img.height;
+                        if (w > maxW || h > maxH) {
+                            if (w > h) { h = Math.round((h * maxW) / w); w = maxW; }
+                            else { w = Math.round((w * maxH) / h); h = maxH; }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', q));
+                    };
+                    img.onerror = reject;
+                };
+                reader.onerror = reject;
+            });
+        };
+
+        // --- V1 SAVE & RETURN (MANDATORY REQUIREMENT: Saves locally and returns without publishing) ---
+        window.saveAndReturnV1 = function() {
+            if (!window.activeProductId) return;
+
+            // Extract values
+            const d = window.activeDraft || {};
+            d.deliveryModel = document.getElementById('v1_deliveryModel')?.value || 'V1';
+            d.category = document.getElementById('v1_category')?.value || 'DIGITAL';
+            d.subCategory = document.getElementById('v1_subCategory')?.value || 'PRODUCT';
+            d.businessName = document.getElementById('v1_title')?.value.trim() || d.businessName;
+            d.whatsappNumber = document.getElementById('v1_whatsapp')?.value.trim() || '';
+            d.shortDescription = document.getElementById('v1_description')?.value.trim() || '';
+            d.normalPrice = Number(document.getElementById('v1_normalPrice')?.value || 0);
+            d.promoPrice = Number(document.getElementById('v1_promoPrice')?.value || 0);
+            d.stockUnits = Number(document.getElementById('v1_stockUnits')?.value || 0);
+            d.commissionPerSale = Number(document.getElementById('v1_commission')?.value || 0);
+            d.imageUrl = document.getElementById('v1_promotionalFlyer')?.value.trim() || d.imageUrl;
+
+            const tagsRaw = document.getElementById('v1_searchTags')?.value || '';
+            d.searchTags = tagsRaw.split(',').map(t => t.trim().toLowerCase()).filter(t => t !== '');
+
+            // Payloads
+            d.v1Payloads = d.v1Payloads || {};
+            const linkInput = document.getElementById('v1_link');
+            if (linkInput && linkInput.value) d.v1Payloads.link = linkInput.value.trim();
+
+            const textInput = document.getElementById('v1_text');
+            if (textInput && textInput.value) d.v1Payloads.text = textInput.value.trim();
+
+            d.lastSavedDraft = Date.now();
+            window.activeDraft = d;
+
+            // Save to LocalStorage
+            const draftKey = `vfa_deploy_draft_${window.currentUser.uid}_${window.activeProductId}`;
+            try {
+                localStorage.setItem(draftKey, JSON.stringify(d));
+            } catch(e) {
+                console.warn("LocalStorage full, payload not cached offline:", e);
+            }
+
+            window.bindDraftToWorkspace();
+            window.switchTab('workspace');
+            window.showToast("✓ V1 Draft Saved Locally. Ready for Final Deployment.");
+        };
+
+        // Populate V2 form fields
+        window.populateV2FormFromDraft = function() {
+            const d = window.activeDraft || {};
+            document.getElementById('v2_payloadData').value = d.v2Payload || d.deliveryPayload || '';
+            document.getElementById('v2_deliveryInstructions').value = d.deliveryInstructions || '';
+        };
+
+        // --- V2 SAVE & RETURN (MANDATORY REQUIREMENT: Saves locally and returns without publishing) ---
+        window.saveAndReturnV2 = function() {
+            if (!window.activeProductId) return;
+
+            const d = window.activeDraft || {};
+            const payload = document.getElementById('v2_payloadData')?.value.trim() || '';
+            const instructions = document.getElementById('v2_deliveryInstructions')?.value.trim() || '';
+            const type = document.getElementById('v2_payloadType')?.value || 'LINK';
+
+            d.v2Payload = payload;
+            d.deliveryPayload = payload;
+            d.v2PayloadType = type;
+            d.deliveryInstructions = instructions;
+            d.lastSavedDraft = Date.now();
+
+            window.activeDraft = d;
+
+            // Save to LocalStorage
+            const draftKey = `vfa_deploy_draft_${window.currentUser.uid}_${window.activeProductId}`;
+            try {
+                localStorage.setItem(draftKey, JSON.stringify(d));
+            } catch(e) {
+                console.warn("LocalStorage error:", e);
+            }
+
+            window.bindDraftToWorkspace();
+            window.switchTab('workspace');
+            window.showToast("✓ V2 Release Draft Saved Locally. (Not released to buyers).");
+        };
+
+        // --- MAIN DEPLOY EXECUTION (COMMITS TO CLOUD FIRESTORE) ---
+        window.executeMainDeployment = async function() {
+            if (!window.activeProductId) {
+                return window.showToast("No product selected for deployment.", true);
+            }
+
+            const d = window.activeDraft || {};
+            const btn = document.getElementById('mainDeployBtn');
+            const btnText = document.getElementById('mainDeployBtnText');
+            const origHtml = btn.innerHTML;
+
+            // Validation
+            if (!d.businessName || d.businessName === "New Product Listing") {
+                window.openV1Subpage();
+                return window.showToast("Please provide a valid Listing Title in V1.", true);
+            }
+            if (!d.promoPrice || d.promoPrice <= 0) {
+                window.openV1Subpage();
+                return window.showToast("Please specify a promo price in V1.", true);
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> COMMITTING TO CLOUD...`;
+
+            try {
+                const listingPayload = {
+                    listingId: d.listingId || window.activeProductId,
+                    vendorId: window.currentUser.uid,
+                    deliveryModel: d.deliveryModel || "V1",
+                    listingType: (d.deliveryModel === 'V1' || d.deliveryModel === 'V2') ? 'ONLINE' : 'PHYSICAL',
+                    category: d.category || "DIGITAL",
+                    subCategory: d.subCategory || "PRODUCT",
+                    businessName: d.businessName,
+                    shortDescription: d.shortDescription || "",
+                    normalPrice: Number(d.normalPrice || 0),
+                    promoPrice: Number(d.promoPrice || 0),
+                    stockUnits: Number(d.stockUnits || 50),
+                    commissionPerSale: Number(d.commissionPerSale || 0),
+                    whatsappNumber: d.whatsappNumber || "",
+                    imageUrl: d.imageUrl || "images/logo.png",
+                    media: { promotionalFlyer: [d.imageUrl || "images/logo.png"], logo: "" },
+                    searchTags: d.searchTags || [],
+                    v1Payloads: d.v1Payloads || {},
+                    deliveryPayload: d.v2Payload || d.deliveryPayload || "",
+                    specificDetails: d.specificDetails || {},
+                    updatedAt: serverTimestamp()
+                };
+
+                let targetDocId = window.activeListingDocId;
+
+                if (targetDocId) {
+                    // Update existing
+                    await updateDoc(doc(db, "listings", targetDocId), listingPayload);
+                } else {
+                    // Create new document in listings
+                    listingPayload.isPaused = false;
+                    listingPayload.verificationStatus = "pending";
+                    listingPayload.totalSales = 0;
+                    listingPayload.clicks = 0;
+                    listingPayload.createdAt = serverTimestamp();
+
+                    const newDocRef = await addDoc(collection(db, "listings"), listingPayload);
+                    targetDocId = newDocRef.id;
+                    window.activeListingDocId = targetDocId;
+                }
+
+                // Also maintain deployment tracking record in deployments collection
+                const deployTrackRef = doc(db, "deployments", listingPayload.listingId);
+                await setDoc(deployTrackRef, {
+                    deploymentId: listingPayload.listingId,
+                    listingDocId: targetDocId,
+                    vendorId: window.currentUser.uid,
+                    status: "deployed",
+                    lastDeployedAt: serverTimestamp(),
+                    v1Configured: Object.keys(listingPayload.v1Payloads).length > 0,
+                    v2Configured: !!listingPayload.deliveryPayload
+                }, { merge: true });
+
+                // Remove local draft since cloud is authoritative now
+                const draftKey = `vfa_deploy_draft_${window.currentUser.uid}_${window.activeProductId}`;
+                localStorage.removeItem(draftKey);
+
+                window.showAlertModal("Deployment Succeeded", `Listing '${d.businessName}' (${listingPayload.listingId}) has been securely written to Cloud Firestore. Super Admin will verify and activate on the public Hub.`);
+
+                // Refresh catalog and metrics
+                await window.fetchVendorCatalog();
+                window.calculateDashboardMetrics();
+                window.bindDraftToWorkspace();
+
+            } catch (err) {
+                console.error("Main deploy error:", err);
+                window.showAlertModal("Deployment Failed", `Firestore write could not be completed: ${err.message}. Your local draft has been preserved.`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        };
+
+        // --- LIVE PREVIEW MODAL ---
+        window.openPreviewModal = function() {
+            const d = window.activeDraft || {};
+            const modal = document.getElementById('previewModal');
+            const container = document.getElementById('previewModalContent');
+
+            document.getElementById('previewPidHeader').innerText = `PID: ${d.listingId || window.activeProductId || 'UNSET'}`;
+
+            const hasV1 = d.v1Payloads && Object.keys(d.v1Payloads).length > 0;
+            const hasV2 = !!(d.v2Payload || d.deliveryPayload);
+
+            container.innerHTML = `
+                <div class="glass-card p-5 rounded-2xl border border-white/10 flex flex-col sm:flex-row gap-5 items-start">
+                    <img src="${d.imageUrl || 'images/logo.png'}" onerror="this.src='https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?auto=format&fit=crop&w=100&q=80'" class="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover border border-white/10 shrink-0">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1 flex-wrap">
+                            <span class="text-[10px] font-mono font-bold bg-brand-gold/10 text-brand-gold px-2 py-0.5 rounded">${d.deliveryModel || 'V1'}</span>
+                            <span class="text-[10px] text-gray-400 font-mono">${d.category || 'DIGITAL'} · ${d.subCategory || 'PRODUCT'}</span>
+                        </div>
+                        <h4 class="text-lg font-bold text-white mb-1 truncate">${d.businessName || 'Untitled Asset'}</h4>
+                        <p class="text-xs text-gray-300 line-clamp-2 mb-3">${d.shortDescription || 'No description provided.'}</p>
+                        <div class="flex items-baseline gap-3">
+                            <span class="text-base font-black text-brand-emerald font-mono">₦${(d.promoPrice||0).toLocaleString()}</span>
+                            <span class="text-xs text-gray-500 line-through font-mono">₦${(d.normalPrice||0).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div class="p-4 rounded-xl bg-black/40 border border-brand-purple/20">
+                        <span class="text-brand-purple font-bold block mb-1 uppercase tracking-widest text-[10px]"><i class="fa-solid fa-bolt mr-1"></i> V1 Staging Architecture</span>
+                        <p class="text-gray-300">${hasV1 ? 'Instant Delivery Assets Configured' : 'No V1 assets attached'}</p>
+                        ${d.v1Payloads?.link ? `<p class="text-[10px] text-gray-500 font-mono truncate mt-1">URL: ${d.v1Payloads.link}</p>` : ''}
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-black/40 border border-brand-accent/20">
+                        <span class="text-brand-accent font-bold block mb-1 uppercase tracking-widest text-[10px]"><i class="fa-solid fa-shield-halved mr-1"></i> V2 Order Release State</span>
+                        <p class="text-gray-300">${hasV2 ? 'Confidential deliverable staged for buyer release' : 'Release payload not yet staged'}</p>
+                        <p class="text-[10px] text-gray-500 mt-1 italic">Private to vendor until explicit buyer purchase.</p>
+                    </div>
+                </div>
+            `;
+
+            modal.classList.add('open');
+        };
+    </script>
+
+    <!-- GENERAL UI LOGIC -->
+    <script>
+        window.toggleSidebar = function() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarMask').classList.toggle('open');
+        };
+
+        window.switchTab = function(tabId) {
+            document.querySelectorAll('.deploy-view').forEach(sec => sec.classList.remove('active', 'animate-fade-in-up'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+            const target = document.getElementById(`view-${tabId}`);
+            if(target) {
+                target.classList.add('active');
+                target.style.animation = 'none';
+                target.offsetHeight;
+                target.style.animation = null;
+                target.classList.add('animate-fade-in-up');
+            }
+
+            const tabBtn = document.getElementById(`tab-${tabId}`);
+            if(tabBtn) tabBtn.classList.add('active');
+
+            const titles = {
+                'dashboard': 'Deployment Dashboard',
+                'deploy-new': 'Deploy New Listing',
+                'manage': 'Manage Deployments',
+                'workspace': 'Product Deployment Workspace',
+                'v1-subpage': 'V1 — Content Configuration',
+                'v2-subpage': 'V2 — Release Content Configuration'
+            };
+            document.getElementById('pageTitle').innerText = titles[tabId] || 'Deployment Central';
+
+            if(window.innerWidth <= 1024) {
+                document.getElementById('sidebar').classList.remove('open');
+                document.getElementById('sidebarMask').classList.remove('open');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.closeModals = function() {
+            document.querySelectorAll('.overlay-mask').forEach(m => m.classList.remove('open'));
+        };
+
+        window.showAlertModal = function(title, msg) {
+            document.getElementById('alertTitle').innerText = title;
+            document.getElementById('alertMessage').innerText = msg;
+            const modal = document.getElementById('customAlertModal');
+            const box = document.getElementById('customAlertBox');
+            modal.classList.add('open');
+            setTimeout(() => { box.classList.remove('scale-95'); }, 10);
+        };
+
+        window.closeAlert = function() {
+            const modal = document.getElementById('customAlertModal');
+            const box = document.getElementById('customAlertBox');
+            box.classList.add('scale-95');
+            modal.classList.remove('open');
+        };
+
+        window.showConfirm = function(title, msg, onConfirm) {
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmMessage').innerText = msg;
+            const modal = document.getElementById('customConfirmModal');
+            const box = document.getElementById('customConfirmBox');
+            modal.classList.add('open');
+            setTimeout(() => { box.classList.remove('scale-95'); }, 10);
+
+            document.getElementById('confirmCancel').onclick = function() {
+                box.classList.add('scale-95'); modal.classList.remove('open');
+            };
+            document.getElementById('confirmAccept').onclick = function() {
+                box.classList.add('scale-95'); modal.classList.remove('open');
+                if(onConfirm) onConfirm();
+            };
+        };
+
+        window.showToast = function(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            document.getElementById('toastMsg').innerText = message;
+
+            if(isError) {
+                toast.classList.replace('border-brand-accent/40', 'border-brand-pink/50');
+                icon.className = "fa-solid fa-triangle-exclamation text-brand-pink text-lg";
+            } else {
+                toast.classList.replace('border-brand-pink/50', 'border-brand-accent/40');
+                icon.className = "fa-solid fa-circle-check text-brand-accent text-lg";
+            }
+            toast.style.transform = 'translateY(0)';
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.transform = 'translateY(32px)';
+                toast.style.opacity = '0';
+            }, 3500);
+        };
+
+        window.copyToClipboard = function(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                window.showToast("Copied PID: " + text);
+            });
+        };
+    </script>
+</body>
+</html>
